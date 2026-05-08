@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laser Plus - Admin Panel</title>
+    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
+    <style>
+        :root { --cyan: #00aeef; --magenta: #ec008c; --yellow: #fff200; --dark: #121212; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--dark); color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        
+        .admin-box {
+            width: 100%; max-width: 350px; background: #1a1a1a;
+            padding: 25px; border-radius: 20px; border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .client-id-badge {
+            background: #333; padding: 5px 10px; border-radius: 5px;
+            font-family: monospace; color: var(--yellow); font-size: 0.8rem;
+        }
+
+        input {
+            width: 100%; padding: 15px; margin: 20px 0;
+            background: #000; border: 1px solid #444;
+            color: white; border-radius: 10px; font-size: 1.2rem;
+            box-sizing: border-box; text-align: center;
+        }
+
+        .btn-send {
+            width: 100%; padding: 15px; border: none;
+            border-radius: 10px; background: var(--magenta);
+            color: white; font-weight: bold; font-size: 1.1rem;
+            cursor: pointer;
+        }
+
+        .status { margin-top: 15px; font-size: 0.9rem; text-align: center; color: #888; }
+    </style>
+</head>
+<body>
+
+    <h2 style="text-transform:lowercase">laser <span style="color:var(--cyan)">plus!</span> <small style="font-size: 0.5rem; vertical-align: middle; color: #666;">ADMIN</small></h2>
+
+    <div class="admin-box">
+        <p style="margin-top:0">Cliente detectado:</p>
+        <span class="client-id-badge" id="client-tag">Escaneando...</span>
+
+        <input type="number" id="sale-amount" placeholder="$ Monto de Venta" autofocus>
+        
+        <button class="btn-send" onclick="sendPoints()">CARGAR PUNTOS (5%)</button>
+        <p class="status" id="status-msg">Listo para enviar</p>
+    </div>
+
+    <script>
+        // 1. Obtener el ID del cliente desde la URL (?id=user_1234)
+        const urlParams = new URLSearchParams(window.location.search);
+        const clientID = urlParams.get('id');
+        
+        if (clientID) {
+            document.getElementById('client-tag').innerText = clientID;
+        } else {
+            document.getElementById('client-tag').innerText = "ERROR: Sin ID";
+            document.getElementById('client-tag').style.color = "red";
+        }
+
+        // 2. Configurar la conexión (Mismas llaves que el cliente)
+        const pubnub = new PubNub({
+            subscribeKey: "sub-c-4613c2f5-866a-463f-98f2-8980362f6b8c",
+            publishKey: "pub-c-67451c8e-5b6d-4787-8d7d-2b7b5f5f5f5f",
+            uuid: "admin_laser_plus"
+        });
+
+        function sendPoints() {
+            const amount = parseFloat(document.getElementById('sale-amount').value);
+            
+            if (!clientID) {
+                alert("No se detectó un ID de cliente válido.");
+                return;
+            }
+
+            if (amount > 0) {
+                const pointsToGive = Math.floor(amount * 0.05); // Calculamos el 5%
+                
+                document.getElementById('status-msg').innerText = "Enviando...";
+
+                // ENVIAR SEÑAL AL CANAL DEL CLIENTE
+                pubnub.publish({
+                    channel: clientID,
+                    message: {
+                        type: "ADD",
+                        amount: pointsToGive
+                    }
+                }, function(status, response) {
+                    if (!status.error) {
+                        document.getElementById('status-msg').innerText = "✅ ¡Puntos enviados!";
+                        document.getElementById('status-msg').style.color = "var(--cyan)";
+                        document.getElementById('sale-amount').value = '';
+                        setTimeout(() => {
+                            document.getElementById('status-msg').innerText = "Listo para otro envío";
+                            document.getElementById('status-msg').style.color = "#888";
+                        }, 3000);
+                    } else {
+                        alert("Error al conectar con la nube.");
+                    }
+                });
+            } else {
+                alert("Ingresa un monto válido.");
+            }
+        }
+    </script>
+</body>
+</html>
